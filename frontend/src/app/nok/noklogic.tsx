@@ -12,6 +12,7 @@ export interface Patient {
   Attending_Clinician: string;
 }
 
+// In your noklogic.tsx file, update the Referral interface:
 export interface Referral {
   Referral_ID: number;
   Patient_ID: number;
@@ -26,10 +27,12 @@ export interface Referral {
   On_Parenteral_Nutrition: 'Yes' | 'No';
   On_BiPAP_CPAP: 'Yes' | 'No';
   Tracheostomy_Freq_More_Than_4hr: 'Yes' | 'No';
-  Oxygen_Requirement_2L: 'Yes' | 'No'; // Fixed variable name
+  Oxygen_Requirement_2L: 'Yes' | 'No';
   On_Dialysis: 'Yes' | 'No';
   Isolation_Infection_Status: string;
   Active_Pathways: string;
+  NOK_Decision: 'PENDING' | 'ACCEPTED' | 'REJECTED';
+  NOK_Notes?: string;
 }
 
 export interface Surveillance {
@@ -336,6 +339,7 @@ export const samplePatient: Patient = {
   Attending_Clinician: "Dr. Smith"
 };
 
+// Update the sampleReferral in noklogic.tsx:
 export const sampleReferral: Referral = {
   Referral_ID: 1001,
   Patient_ID: 1,
@@ -350,10 +354,13 @@ export const sampleReferral: Referral = {
   On_Parenteral_Nutrition: "No",
   On_BiPAP_CPAP: "No",
   Tracheostomy_Freq_More_Than_4hr: "No",
-  Oxygen_Requirement_2L: "No", // Fixed variable name
+  Oxygen_Requirement_2L: "No",
   On_Dialysis: "No",
   Isolation_Infection_Status: "None",
-  Active_Pathways: "Stroke Rehab"
+  Active_Pathways: "Stroke Rehab",
+  // ADD THESE:
+  NOK_Decision: "PENDING",
+  NOK_Notes: undefined
 };
 
 export const sampleSurveillance: Surveillance = {
@@ -381,3 +388,164 @@ export function createTestData(
 
 // Export all types and classes for use in other modules
 export default NOKFinancialCounselling;
+
+// noklogic.tsx - Add this function at the end of the file
+
+// Add this updated initialize function to your noklogic.tsx
+export const initializeNOKFinancialCounselling = (
+  containerId: string, 
+  patient?: Patient, 
+  referral?: Referral, 
+  surveillance?: Surveillance
+) => {
+  const container = document.getElementById(containerId);
+  if (!container) {
+    console.error('Container not found:', containerId);
+    return;
+  }
+
+  console.log('Initializing with patient:', patient?.Patient_Name);
+
+  // Use provided data or fall back to sample data
+  const currentPatient = patient || samplePatient;
+  const currentReferral = referral || sampleReferral;
+  const currentSurveillance = surveillance || sampleSurveillance;
+
+  // Determine decision scenario
+  const isAccepted = currentReferral.NOK_Decision === 'ACCEPTED';
+  const isRejected = currentReferral.NOK_Decision === 'REJECTED';
+  
+  const testResult = NOKFinancialCounselling.completeNOKWorkflowAnalysis(
+    currentPatient,
+    currentReferral,
+    currentSurveillance,
+    !isRejected, // If not rejected, show acceptance workflow
+    isRejected ? [currentReferral.NOK_Notes || 'Financial constraints'] : [],
+    ['Follow-up appointment in 2 weeks']
+  );
+
+  // Helper function to safely render acceptance workflow
+  const renderAcceptanceWorkflow = (workflow: NOKAcceptanceWorkflow) => {
+    return `
+      <div style="margin-bottom: 20px; padding: 15px; background: #e8f5e8; border-radius: 8px; border-left: 4px solid #4CAF50;">
+        <h3 style="color: #2e7d32; margin-top: 0;">✅ Acceptance Workflow</h3>
+        <p><strong style="color: #333;">Outcome:</strong> <span style="color: #555;">${workflow.acceptanceOutcome}</span></p>
+        <p><strong style="color: #333;">Discharge Medication:</strong> <span style="color: #555;">${workflow.dischargeMedication}</span></p>
+        
+        <h4 style="color: #2e7d32;">Swab Instructions</h4>
+        <ul style="color: #555;">
+          ${workflow.swabInstructions.map(instruction => `<li>${instruction}</li>`).join('')}
+        </ul>
+
+        <h4 style="color: #2e7d32;">ICH PSO Contact</h4>
+        <p><strong style="color: #333;">Email:</strong> <span style="color: #555;">${workflow.ichPSOContact.email}</span></p>
+        <p><strong style="color: #333;">Phone:</strong> <span style="color: #555;">${workflow.ichPSOContact.phone}</span></p>
+        <p><strong style="color: #333;">Working Hours:</strong> <span style="color: #555;">${workflow.ichPSOContact.workingHours}</span></p>
+
+        <h4 style="color: #2e7d32;">Follow-up Appointments</h4>
+        <ul style="color: #555;">
+          ${workflow.followUpAppointments.map(appt => `<li>${appt}</li>`).join('')}
+        </ul>
+      </div>
+    `;
+  };
+
+  // Helper function to safely render rejection workflow
+  const renderRejectionWorkflow = (workflow: NOKRejectionWorkflow) => {
+    return `
+      <div style="margin-bottom: 20px; padding: 15px; background: #ffebee; border-radius: 8px; border-left: 4px solid #f44336;">
+        <h3 style="color: #c62828; margin-top: 0;">❌ Rejection Workflow</h3>
+        <p><strong style="color: #333;">Reason:</strong> <span style="color: #555;">${workflow.rejectionReason}</span></p>
+        <h4 style="color: #c62828;">Criteria Cited</h4>
+        <ul style="color: #555;">
+          ${workflow.criteriaCited.map(criteria => `<li>${criteria}</li>`).join('')}
+        </ul>
+      </div>
+    `;
+  };
+
+  // Get financial status safely
+  const financialStatus = (currentPatient as any).Financial_Status || 'Not specified';
+  const insuranceCoverage = (currentPatient as any).Insurance_Coverage !== undefined 
+    ? ((currentPatient as any).Insurance_Coverage ? 'Yes' : 'No') 
+    : 'Not specified';
+
+  // Render the component with proper styling
+  container.innerHTML = `
+    <div style="padding: 25px; border: 2px solid #e0e0e0; border-radius: 12px; background: #ffffff; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); font-family: Arial, sans-serif; color: #333;">
+      <h2 style="color: #1976d2; margin-top: 0; border-bottom: 2px solid #1976d2; padding-bottom: 10px;">
+        ${patient ? `NOK Financial Counselling - ${patient.Patient_Name}` : 'NOK Financial Counselling System'}
+        ${referral && referral.NOK_Decision !== 'PENDING' ? ` (${referral.NOK_Decision})` : ''}
+      </h2>
+      
+      <div style="margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+        <h3 style="color: #1976d2; margin-top: 0;">👤 Patient Information</h3>
+        <p><strong style="color: #333;">Name:</strong> <span style="color: #555;">${currentPatient.Patient_Name}</span></p>
+        <p><strong style="color: #333;">NRIC:</strong> <span style="color: #555;">${currentPatient.NRIC}</span></p>
+        <p><strong style="color: #333;">Age:</strong> <span style="color: #555;">${currentPatient.Age}</span></p>
+        <p><strong style="color: #333;">Hospital:</strong> <span style="color: #555;">${currentPatient.Community_Hospital}</span></p>
+        <p><strong style="color: #333;">Ward Type:</strong> <span style="color: #555;">${currentPatient.Ward_Type}</span></p>
+        <p><strong style="color: #333;">Financial Status:</strong> <span style="color: #555;">${financialStatus}</span></p>
+        <p><strong style="color: #333;">Insurance Coverage:</strong> <span style="color: #555;">${insuranceCoverage}</span></p>
+      </div>
+
+      <div style="margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+        <h3 style="color: #1976d2; margin-top: 0;">📋 Referral Information</h3>
+        <p><strong style="color: #333;">Service:</strong> <span style="color: #555;">${currentReferral.Service}</span></p>
+        <p><strong style="color: #333;">Department:</strong> <span style="color: #555;">${currentReferral.Department}</span></p>
+        <p><strong style="color: #333;">Special Precautions:</strong> <span style="color: #555;">${currentReferral.Special_Precautions}</span></p>
+        <p><strong style="color: #333;">High Cost Treatment:</strong> <span style="color: ${currentReferral.IV_Chemotherapy_Radiotherapy === 'Yes' ? '#d32f2f' : '#388e3c'};">${currentReferral.IV_Chemotherapy_Radiotherapy}</span></p>
+        <p><strong style="color: #333;">On Dialysis:</strong> <span style="color: ${currentReferral.On_Dialysis === 'Yes' ? '#d32f2f' : '#388e3c'};">${currentReferral.On_Dialysis}</span></p>
+      </div>
+
+      <div style="margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+        <h3 style="color: #1976d2; margin-top: 0;">🎯 Financial Counselling Triggers</h3>
+        <ul style="color: #555;">
+          ${Object.entries(testResult.financialCounselling.counselling_triggers)
+            .map(([key, value]) => `
+              <li>
+                <strong style="color: #333;">${key.replace(/_/g, ' ').toUpperCase()}:</strong> 
+                <span style="color: ${value ? '#d32f2f' : '#388e3c'}; font-weight: bold;">
+                  ${value ? 'ACTIVE' : 'INACTIVE'}
+                </span>
+              </li>`)
+            .join('')}
+        </ul>
+      </div>
+
+      <div style="margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+        <h3 style="color: #1976d2; margin-top: 0;">💡 Recommendations</h3>
+        <ul style="color: #555;">
+          ${testResult.financialCounselling.recommendations.map(rec => `
+            <li style="margin-bottom: 8px; padding-left: 10px; border-left: 3px solid #1976d2;">
+              ${rec}
+            </li>`).join('')}
+        </ul>
+      </div>
+
+      ${testResult.decision === 'ACCEPTED' && testResult.acceptanceWorkflow 
+        ? renderAcceptanceWorkflow(testResult.acceptanceWorkflow)
+        : testResult.decision === 'REJECTED' && testResult.rejectionWorkflow
+        ? renderRejectionWorkflow(testResult.rejectionWorkflow)
+        : '<div style="margin-bottom: 20px; padding: 15px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;"><h3 style="color: #856404; margin-top: 0;">⏳ Pending Decision</h3><p style="color: #856404;">No decision has been made yet for this referral.</p></div>'
+      }
+
+      
+<div style="margin-top: 25px; padding: 15px; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #1976d2;">
+  <p style="margin: 0;"><strong style="color: #1976d2;">Status:</strong> <span style="color: #555;">${patient ? `Viewing ${patient.Patient_Name}` : 'System overview'}</span></p>
+  <p style="margin: 8px 0 0 0;">
+    <strong style="color: #1976d2;">Current Decision:</strong> 
+    <span style="color: ${testResult.decision === 'ACCEPTED' ? '#4CAF50' : testResult.decision === 'REJECTED' ? '#f44336' : '#ff9800'}; font-weight: bold;">
+      ${referral?.NOK_Decision || 'PENDING'}
+    </span>
+  </p>
+  ${referral?.NOK_Notes && `
+    <p style="margin: 8px 0 0 0;">
+      <strong style="color: #1976d2;">Notes:</strong> 
+      <span style="color: #555;">${referral.NOK_Notes}</span>
+    </p>
+  `}
+</div>
+    </div>
+  `;
+};
