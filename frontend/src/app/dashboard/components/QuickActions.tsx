@@ -1,5 +1,11 @@
 // app/dashboard/components/QuickActions.tsx
+'use client';
+
+import { useRouter } from 'next/navigation';
+
 export default function QuickActions() {
+  const router = useRouter();
+
   const actions = [
     {
       title: 'New Referral',
@@ -9,25 +15,25 @@ export default function QuickActions() {
       onClick: () => console.log('New referral'),
     },
     {
+      title: 'NOK Counselling',
+      description: 'Financial counselling for next of kin',
+      icon: '💬',
+      color: 'bg-green-500 hover:bg-green-600',
+      onClick: () => router.push('/nok'),
+    },
+    {
       title: 'Bulk Upload',
       description: 'Upload multiple referrals',
       icon: '📤',
-      color: 'bg-green-500 hover:bg-green-600',
+      color: 'bg-purple-500 hover:bg-purple-600',
       onClick: () => console.log('Bulk upload'),
     },
     {
       title: 'Generate Report',
       description: 'Create referral analytics report',
       icon: '📊',
-      color: 'bg-purple-500 hover:bg-purple-600',
-      onClick: () => console.log('Generate report'),
-    },
-    {
-      title: 'Manage Templates',
-      description: 'Edit referral templates',
-      icon: '📝',
       color: 'bg-orange-500 hover:bg-orange-600',
-      onClick: () => console.log('Manage templates'),
+      onClick: () => console.log('Generate report'),
     },
   ];
 
@@ -54,3 +60,4 @@ export default function QuickActions() {
     </div>
   );
 }
+
