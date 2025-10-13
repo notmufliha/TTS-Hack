@@ -3,6 +3,7 @@
 
 import Link from 'next/link';
 import { useEffect } from 'react';
+import ReferralManagement from './routes/page';
 
 export default function Home() {
 
@@ -18,7 +19,7 @@ export default function Home() {
             </div>
             <div className="flex space-x-4">
               <Link 
-                href="/"
+                href="/routes"
                 className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50"
               >
                 Home
