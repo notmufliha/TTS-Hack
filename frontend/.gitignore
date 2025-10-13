@@ -8,8 +8,24 @@
 # testing
 /coverage
 
-# production
-/build
+# Build outputs
+.next/
+build/
+dist/
+out/
+
+# CSS files
+*.css
+*.css.map
+
+# Turbo
+.turbo/
+
+# Other common ignores
+.DS_Store
+*.log
+.env
+.env.local
 
 
 # misc
