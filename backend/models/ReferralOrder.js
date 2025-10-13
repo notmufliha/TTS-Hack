@@ -259,22 +259,41 @@ class ReferralOrder {
 
       // 2. Create readiness_screening_checklist record with Singapore timezone
       const createChecklistQuery = `
-        INSERT INTO readiness_screening_checklist 
-          (patient_id, history_id, screening_datetime, screening_result, notes)
-        VALUES ($1, $2, (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Singapore'), 'Pending', 'Initial screening created from referral order process')
-        RETURNING readiness_id
-      `;
+  INSERT INTO readiness_screening_checklist 
+    (patient_id, history_id, screening_datetime, screening_result, notes)
+  VALUES ($1, $2, (CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Singapore'), 'Pending', 'Initial screening created from referral order process')
+  RETURNING readiness_id, history_id
+`;
 
+      // First, get the most recent history_id for this patient
+      const getHistoryIdQuery = `
+  SELECT history_id 
+  FROM patient_medical_history 
+  WHERE patient_id = $1 
+  ORDER BY last_updated DESC 
+  LIMIT 1
+`;
+
+      const historyResult = await client.query(getHistoryIdQuery, [patientId]);
+
+      if (historyResult.rows.length === 0) {
+        throw new Error(`No medical history found for patient ${patientId}`);
+      }
+
+      const currentHistoryId = historyResult.rows[0].history_id;
+
+      // Now use the actual history_id
       const checklistResult = await client.query(createChecklistQuery, [
         patientId,
-        1,
+        currentHistoryId, // Use the actual history_id instead of hardcoded 1
       ]);
 
+      console.log("Created checklist with history_id:", currentHistoryId);
       await client.query("COMMIT");
 
       return {
         order_id: orderResult.rows[0].order_id,
-        readiness_id: checklistResult.rows[0].readiness_id,
+        history_id: currentHistoryId,
         patient_id: patientId,
       };
     } catch (error) {
