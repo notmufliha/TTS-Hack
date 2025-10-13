@@ -12,10 +12,13 @@ node_modules/
 /coverage
 
 # Production
+.next/
 build/
 dist/
+out/
 
 # Environment variables
+*.log
 .env
 .env.local
 .env.development.local
@@ -102,3 +105,7 @@ temp/
 .Trashes
 ehthumbs.db
 Thumbs.db" > .gitignore
+
+# CSS files
+*.css
+*.css.map
