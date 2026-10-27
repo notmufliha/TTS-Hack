@@ -46,7 +46,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const appointmentsResult = await client.query<Appointment>(
-      `SELECT * FROM appointment
+      `SELECT appointment_id, patient_id, appointment_date, appointment_type, status
+       FROM appointment
        WHERE patient_id = $1
          AND appointment_date::date BETWEEN CURRENT_DATE AND CURRENT_DATE + 3
          AND COALESCE(LOWER(status), 'scheduled') NOT IN ('cancelled', 'completed', 'no-show')
@@ -55,7 +56,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     );
 
     const swabsResult = await client.query<Swab>(
-      `SELECT * FROM swab WHERE patient_id = $1 ORDER BY swab_date DESC`,
+      `SELECT swab_id, patient_id, swab_type, swab_date, result
+       FROM swab WHERE patient_id = $1 ORDER BY swab_date DESC`,
       [order.patient_id]
     );
 
@@ -68,6 +70,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const escalated = assessment.decision === "Escalated";
     const status = escalated ? "Pending" : assessment.decision;
+    // readiness_screening_checklist.screening_result allows 'Ready' | 'Not Ready' | 'Pending'.
+    const screeningResult = escalated ? "Pending" : assessment.decision === "Accepted" ? "Ready" : "Not Ready";
     const notes = assessment.reasons.join("; ");
 
     const checklistResult = await client.query<{ readiness_id: number }>(
@@ -75,7 +79,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
          (patient_id, history_id, screening_datetime, screening_result, notes)
        VALUES ($1, $2, ${NOW_SG}, $3, $4)
        RETURNING readiness_id`,
-      [order.patient_id, history.history_id, status, escalated ? `Escalated to clinician: ${notes}` : notes]
+      [order.patient_id, history.history_id, screeningResult, escalated ? `Escalated to clinician: ${notes}` : notes]
     );
 
     const has = (key: string) => assessment.exclusions.find((c) => c.key === key)?.status === "FAIL";

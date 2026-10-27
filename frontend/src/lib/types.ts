@@ -65,7 +65,7 @@ export interface Swab {
 
 export interface ReferralOrder {
   order_id: number;
-  referral_id: number;
+  referral_id: string;
   patient_id: number;
   order_datetime: string;
   comments: string | null;
@@ -154,5 +154,19 @@ export interface MonthlyReport {
   };
   time_saved_minutes: number;
   rejection_reasons: { reason: string; count: number }[];
-  rows: (ReferralOrder & { tat_minutes: number | null })[];
+  rows: (Pick<
+    ReferralOrder,
+    | "order_id"
+    | "referral_id"
+    | "order_datetime"
+    | "provider"
+    | "community_hospital"
+    | "ward_type"
+    | "reviewed_datetime"
+    | "accepted_withdrawn_datetime"
+    | "referral_status"
+    | "case_escalated_to_clinician"
+    | "rejected_reason"
+    | "psa_name"
+  > & { review_minutes: number | null; tat_minutes: number | null })[];
 }

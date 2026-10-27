@@ -23,7 +23,6 @@ function downloadCsv(report: MonthlyReport) {
   const header = [
     "Order ID",
     "Referral ID",
-    "Patient",
     "Provider",
     "Community Hospital",
     "Referred",
@@ -38,7 +37,6 @@ function downloadCsv(report: MonthlyReport) {
   const rows = report.rows.map((r) => [
     r.order_id,
     r.referral_id,
-    r.patient_name ?? "",
     r.provider ?? "",
     r.community_hospital ?? "",
     formatDateTime(r.order_datetime),
@@ -162,7 +160,7 @@ export default function ReportsPage() {
               <table className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    {["Order", "Patient", "Provider", "Referred", "Decided", "Outcome", "TAT", "Reason"].map((h) => (
+                    {["Order", "Referral", "Provider", "Referred", "Decided", "Outcome", "TAT", "Reason"].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                         {h}
                       </th>
@@ -180,7 +178,7 @@ export default function ReportsPage() {
                     report.rows.map((r) => (
                       <tr key={r.order_id}>
                         <td className="px-4 py-2 text-gray-900">#{r.order_id}</td>
-                        <td className="px-4 py-2 text-gray-900">{r.patient_name ?? `Patient ${r.patient_id}`}</td>
+                        <td className="px-4 py-2 text-gray-900">{r.referral_id}</td>
                         <td className="px-4 py-2 text-gray-700">{r.provider}</td>
                         <td className="px-4 py-2 text-gray-700">{formatDateTime(r.order_datetime)}</td>
                         <td className="px-4 py-2 text-gray-700">{formatDateTime(r.accepted_withdrawn_datetime)}</td>

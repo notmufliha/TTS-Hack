@@ -49,7 +49,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
        WHERE readiness_id = (
          SELECT MAX(readiness_id) FROM readiness_screening_checklist WHERE patient_id = $3
        )`,
-      [decision, ` | Clinician decision: ${decision}${reason ? ` (${reason})` : ""}`, order.patient_id]
+      [decision === "Accepted" ? "Ready" : "Not Ready", ` | Clinician decision: ${decision}${reason ? ` (${reason})` : ""}`, order.patient_id]
     );
 
     await client.query("COMMIT");

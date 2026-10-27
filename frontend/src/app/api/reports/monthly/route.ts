@@ -32,11 +32,13 @@ export async function GET(request: Request) {
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new HttpError(400, "month must be YYYY-MM");
 
     const result = await pool.query(
-      `SELECT ro.*, p.patient_name, p.nric, p.age, p.gender,
+      // Operational fields only: no patient identity or clinical data in the report.
+      `SELECT ro.order_id, ro.referral_id, ro.order_datetime, ro.provider, ro.community_hospital,
+              ro.ward_type, ro.reviewed_datetime, ro.accepted_withdrawn_datetime, ro.referral_status,
+              ro.case_escalated_to_clinician, ro.rejected_reason, ro.psa_name,
               EXTRACT(EPOCH FROM (ro.reviewed_datetime - ro.order_datetime)) / 60 AS review_minutes,
               EXTRACT(EPOCH FROM (ro.accepted_withdrawn_datetime - ro.order_datetime)) / 60 AS tat_minutes
        FROM referral_order ro
-       LEFT JOIN patient p ON ro.patient_id = p.patient_id
        WHERE ro.order_datetime >= $1::date
          AND ro.order_datetime < ($1::date + INTERVAL '1 month')
        ORDER BY ro.order_datetime`,

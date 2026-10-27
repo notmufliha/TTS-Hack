@@ -35,14 +35,17 @@ function toDate(value: string | null): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-// Patients may transfer only if tracheostomy suctioning is needed less often
-// than every 4 hours (interval > 4h). "less_than_4hr" / "<=4hr" mean MORE frequent.
+// Checklist item: "Tracheostomy suctioning less frequent than 4 hourly".
+// patient_medical_history.tracheostomy_freq stores the frequency itself:
+// 'less_than_4hr' = less frequent than 4-hourly (passes, and is the column default),
+// 'more_than_4hr' = more frequent than 4-hourly (fails).
 export function tracheostomyStatus(freq: string | null): CriterionStatus {
   if (freq === null || freq === undefined) return "PASS";
   const f = String(freq).trim().toLowerCase();
   if (f === "" || f === "nil" || f === "none" || f === "null" || f === "no") return "PASS";
-  if (f === "more_than_4hr" || f === ">4hr" || f.startsWith(">")) return "PASS";
-  if (f === "less_than_4hr" || f === "<=4hr" || f.startsWith("<")) return "FAIL";
+  if (f === "less_than_4hr") return "PASS";
+  if (f === "more_than_4hr") return "FAIL";
+  // Free text such as "6 hourly": the interval between suctions must exceed 4 hours.
   const hourly = f.match(/(\d+(?:\.\d+)?)\s*(?:hr|hrs|hour|hours|hourly)/);
   if (hourly) return Number(hourly[1]) > 4 ? "PASS" : "FAIL";
   return "REVIEW";
@@ -97,8 +100,13 @@ export function assessExclusions(history: PatientMedicalHistory): Criterion[] {
   criteria.push({
     key: "tracheostomy_freq",
     label: "Tracheostomy suctioning",
-    expected: "NIL or less often than 4-hourly",
-    actual: history.tracheostomy_freq ? String(history.tracheostomy_freq).replace(/_/g, " ") : "NIL",
+    expected: "NIL or less frequent than 4-hourly",
+    actual:
+      history.tracheostomy_freq === "less_than_4hr"
+        ? "Less frequent than 4-hourly"
+        : history.tracheostomy_freq === "more_than_4hr"
+        ? "More frequent than 4-hourly"
+        : history.tracheostomy_freq || "NIL",
     status: tracheostomyStatus(history.tracheostomy_freq),
   });
   return criteria;
