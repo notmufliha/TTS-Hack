@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TTSH ICH Referral Triage",
+  title: "ICH Referral Triage",
   description: "Smart referral triaging for the TTSH Integrated Care Hub PSO",
 };
 

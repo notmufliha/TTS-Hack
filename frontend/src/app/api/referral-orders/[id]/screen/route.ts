@@ -1,12 +1,40 @@
 import { NextResponse } from "next/server";
 import pool from "@/lib/db";
 import { errorResponse, HttpError } from "@/lib/api-route";
-import { assessReferral } from "@/lib/screening";
-import type { Appointment, PatientMedicalHistory, ReferralOrder, Swab } from "@/lib/types";
+import { assessOrder, patientSummary } from "@/lib/screening-data";
+import type { ReferralOrder } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 const NOW_SG = "DATE_TRUNC('second', TIMEZONE('Asia/Singapore', CURRENT_TIMESTAMP))";
+
+// Previews the checklist for a referral without saving anything. Used by the
+// screening clinician to review an escalated case.
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const orderId = Number(id);
+  const client = await pool.connect();
+  try {
+    if (!Number.isInteger(orderId)) throw new HttpError(400, "Invalid order ID");
+    const orderResult = await client.query<ReferralOrder>(`SELECT * FROM referral_order WHERE order_id = $1`, [orderId]);
+    const order = orderResult.rows[0];
+    if (!order) throw new HttpError(404, "Referral order not found");
+
+    const { history, assessment } = await assessOrder(client, order);
+    const patient = await patientSummary(client, order.patient_id);
+    return NextResponse.json({
+      success: true,
+      order: { ...order, ...patient },
+      history_id: history.history_id,
+      readiness_id: null,
+      assessment,
+    });
+  } catch (error) {
+    return errorResponse(error);
+  } finally {
+    client.release();
+  }
+}
 
 // Screens a pending referral in a single transaction: it reads the latest medical
 // history, imaging appointments in the next 3 days and swabs, applies the
@@ -33,40 +61,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       throw new HttpError(409, `Referral order already processed (${order.referral_status})`);
     }
 
-    const historyResult = await client.query<PatientMedicalHistory>(
-      `SELECT * FROM patient_medical_history
-       WHERE patient_id = $1
-       ORDER BY last_updated DESC
-       LIMIT 1`,
-      [order.patient_id]
-    );
-    const history = historyResult.rows[0];
-    if (!history) {
-      throw new HttpError(422, `No medical history found for patient ${order.patient_id}`);
-    }
-
-    const appointmentsResult = await client.query<Appointment>(
-      `SELECT appointment_id, patient_id, appointment_date, appointment_type, status
-       FROM appointment
-       WHERE patient_id = $1
-         AND appointment_date::date BETWEEN CURRENT_DATE AND CURRENT_DATE + 3
-         AND COALESCE(LOWER(status), 'scheduled') NOT IN ('cancelled', 'completed', 'no-show')
-       ORDER BY appointment_date`,
-      [order.patient_id]
-    );
-
-    const swabsResult = await client.query<Swab>(
-      `SELECT swab_id, patient_id, swab_type, swab_date, result
-       FROM swab WHERE patient_id = $1 ORDER BY swab_date DESC`,
-      [order.patient_id]
-    );
-
-    const assessment = assessReferral({
-      history,
-      upcomingAppointments: appointmentsResult.rows,
-      swabs: swabsResult.rows,
-      provider: order.provider,
-    });
+    const { history, assessment } = await assessOrder(client, order);
 
     const escalated = assessment.decision === "Escalated";
     const status = escalated ? "Pending" : assessment.decision;
@@ -141,14 +136,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     await client.query("COMMIT");
 
-    const patient = await pool.query(
-      `SELECT patient_name, nric, age, gender FROM patient WHERE patient_id = $1`,
-      [order.patient_id]
-    );
+    const patient = await patientSummary(client, order.patient_id);
 
     return NextResponse.json({
       success: true,
-      order: { ...updated.rows[0], ...patient.rows[0] },
+      order: { ...updated.rows[0], ...patient },
       history_id: history.history_id,
       readiness_id: checklistResult.rows[0]?.readiness_id ?? null,
       assessment,
