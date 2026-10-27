@@ -3,110 +3,6 @@
 import React, { useState } from 'react';
 import { useApiData } from '../components/useApiData';
 
-interface Referral {
-  id: number;
-  name: string;
-  email: string;
-  referredBy: string;
-  referralDate: string;
-  touchpoints: number;
-  lastTouchpoint: string;
-}
-interface ReferralOrder {
-  order_id: number;
-  referral_id: number;
-  patient_id: number;
-  order_datetime: string;
-  comments: string;
-  provider: string;
-  community_hospital: string;
-  ward_type: string;
-  psychiatric_issues: boolean;
-  iv_chemo_radiotherapy: boolean;
-  parenteral_nutrition: boolean;
-  bipap_cpap: boolean;
-  tracheostomy_freq: '>4hr' | '<=4hr';
-  oxygen_requirement: number;
-  dialysis: boolean;
-  referral_recommended_pt_ot: boolean;
-  discharge_planning: boolean;
-  special_precautions: string;
-  isolation_infection_status: string;
-  reviewed_datetime: string;
-  accepted_withdrawn_datetime: string;
-  referral_status: 'Pending' | 'Accepted' | 'Rejected' | 'Withdrawn' | 'Cancelled';
-  case_escalated_to_clinician: boolean;
-  rejected_reason: string;
-  additional_comments: string;
-  psa_name: string;
-  case_cancelled_reason: string;
-  case_cancelled_date: string;
-  case_cancelled_time: string;
-  case_cancelled_by: 'PSA 1' | 'PSA 2' | 'PSA 3' | 'PSA 4';
-  tat_order_to_accept: string;
-  tat_order_to_reject: string;
-  tat_order_to_withdraw: string;
-  tat_order_to_cancel: string;
-  patient_name?: string;
-  nric?: string;
-  age?: number;
-  gender?: string;
-}
-interface Appointment {
-  appointment_id: number;
-  patient_id: number;
-  appointment_date: string;
-  appointment_type: string;
-  created_at: string;
-  status: 'Scheduled' | 'Completed' | 'Cancelled' | 'No-Show';
-  notes: string;
-  patient_name?: string;
-}
-
-interface Patient {
-  patient_id: number;
-  patient_name: string;
-  nric: string;
-  age: number;
-  gender: 'Male' | 'Female' | 'Other';
-  created_at: string;
-}
-
-interface PatientMedicalHistory {
-  history_id: number;
-  patient_id: number;
-  iv_chemo_radiotherapy: boolean;
-  dialysis: boolean;
-  parenteral_nutrition: boolean;
-  psychiatric_issues: boolean;
-  suicidal_precaution: boolean;
-  bipap_cpap: boolean;
-  tracheostomy_freq: 'less_than_4hr' | 'more_than_4hr';
-  temperature: number;
-  systolic_bp: number;
-  diastolic_bp: number;
-  pulse: number;
-  respiratory_rate: number;
-  spo2: number;
-  oxygen_level: number;
-  special_circumstance: string;
-  last_updated: string;
-  patient_name?: string;
-}
-
-interface Swab {
-  swab_id: number;
-  patient_id: number;
-  swab_type: 'CRE_CPO' | 'MRSA' | 'VRE';
-  swab_date: string;
-  result: 'positive' | 'negative' | 'pending';
-  result_date: string;
-  swab_location: string;
-  notes: string;
-  created_at: string;
-  patient_name?: string;
-}
-
 export default function ReferralManagement() {
   const [filterCount] = useState<number>(3);
   const [activeTable, setActiveTable] = useState<string>('referrals');
@@ -145,7 +41,7 @@ export default function ReferralManagement() {
             onClick={refetch}
             className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors"
           >
-            Retry{error}
+            Retry
           </button>
         </div>
       </div>
@@ -455,7 +351,7 @@ export default function ReferralManagement() {
               </td>
               <td className="px-4 py-3 text-gray-800">{swab.swab_type}</td>
               <td className="px-4 py-3 text-gray-800">
-                {new Date(swab.swab_date).toLocaleDateString()}
+                {swab.swab_date ? new Date(swab.swab_date).toLocaleDateString() : '-'}
               </td>
               <td className="px-4 py-3">
                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${

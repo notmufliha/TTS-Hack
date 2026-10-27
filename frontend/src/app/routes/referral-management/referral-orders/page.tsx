@@ -2,206 +2,179 @@
 
 import React, { useState } from "react";
 import { useApiData } from "../../../components/useApiData";
-import dynamic from "next/dynamic";
-const createAndDownloadPDFChecklist = async (
+import { referralOrdersAPI } from "../../../components/api";
+import type { Criterion, ScreeningResponse } from "@/lib/types";
+
+const PSA_NAME = "PSA";
+
+const createAndDownloadPDFChecklist = async ({
+  order,
   assessment,
-  screeningResult,
-  referralUpdate
-) => {
+  history_id,
+  readiness_id,
+}: ScreeningResponse) => {
   // Dynamically import jsPDF
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF();
-  // Defensive defaults
-  const referralId = referralUpdate?.referral_id ?? "N/A";
-  const orderId = referralUpdate?.order_id ?? "N/A";
-  const patientId = assessment?.patient_id ?? "N/A";
+  const black: [number, number, number] = [0, 0, 0];
+  const statusColors: Record<string, [number, number, number]> = {
+    PASS: [0, 128, 0],
+    FAIL: [200, 0, 0],
+    REVIEW: [200, 120, 0],
+  };
 
-  // Set PDF properties
   pdf.setProperties({
-    title: `Referral Screening Checklist - ${referralId}`,
+    title: `Referral Screening Checklist - ${order.referral_id}`,
     subject: "Patient Readiness Assessment",
-    author: "Healthcare System",
+    author: "TTSH ICH PSO",
     keywords: "referral, screening, checklist, medical",
   });
 
   let yPosition = 20;
+  const newPageIfNeeded = () => {
+    if (yPosition > 270) {
+      pdf.addPage();
+      yPosition = 20;
+    }
+  };
 
   // --- Header ---
   pdf.setFontSize(16);
-  pdf.setFont(undefined, "bold");
+  pdf.setFont("helvetica", "bold");
   pdf.text("PATIENT READINESS SCREENING CHECKLIST", 105, yPosition, {
     align: "center",
   });
   yPosition += 10;
 
   pdf.setFontSize(10);
-  pdf.setFont(undefined, "normal");
-  pdf.text(`Referral ID: ${referralId}`, 20, yPosition);
-  pdf.text(`Order ID: ${orderId}`, 105, yPosition);
-  pdf.text(`Patient ID: ${patientId}`, 160, yPosition);
+  pdf.setFont("helvetica", "normal");
+  pdf.text(`Referral ID: ${order.referral_id ?? "N/A"}`, 20, yPosition);
+  pdf.text(`Order ID: ${order.order_id}`, 90, yPosition);
+  pdf.text(`Patient ID: ${order.patient_id}`, 150, yPosition);
   yPosition += 6;
-
-  pdf.text(`Patient Name: ${assessment?.patient_name ?? "N/A"}`, 20, yPosition);
+  pdf.text(`Patient Name: ${order.patient_name ?? "N/A"}`, 20, yPosition);
+  pdf.text(`Provider: ${order.provider ?? "N/A"}`, 90, yPosition);
+  yPosition += 6;
   pdf.text(
-    `Assessment Date: ${
-      assessment?.assessment_timestamp
-        ? new Date(assessment.assessment_timestamp).toLocaleDateString()
-        : "N/A"
+    `Screened: ${new Date().toLocaleString("en-SG", { timeZone: "Asia/Singapore" })}`,
+    20,
+    yPosition
+  );
+  pdf.text(`Screened by: ${order.psa_name ?? "N/A"}`, 90, yPosition);
+  yPosition += 12;
+
+  // --- Outcome ---
+  pdf.setFont("helvetica", "bold");
+  pdf.text(
+    `OUTCOME: ${
+      assessment.decision === "Escalated"
+        ? "ESCALATED TO CLINICIAN"
+        : assessment.decision.toUpperCase()
     }`,
-    105,
+    20,
     yPosition
   );
-  yPosition += 15;
-
-  // --- Assessment Summary ---
-  pdf.setFont(undefined, "bold");
-  pdf.text("OVERALL ASSESSMENT SUMMARY", 20, yPosition);
-  yPosition += 8;
-
-  pdf.setFont(undefined, "normal");
-  pdf.text(
-    `Status: ${assessment?.overall_assessment?.status ?? "N/A"}`,
-    25,
-    yPosition
-  );
+  yPosition += 6;
+  pdf.setFont("helvetica", "normal");
+  for (const reason of assessment.reasons) {
+    newPageIfNeeded();
+    const lines = pdf.splitTextToSize(`- ${reason}`, 165);
+    pdf.text(lines, 25, yPosition);
+    yPosition += lines.length * 5;
+  }
   yPosition += 5;
-  pdf.text(
-    `Passed Criteria: ${
-      assessment?.overall_assessment?.passed_criteria ?? "N/A"
-    }/${assessment?.overall_assessment?.total_criteria ?? "N/A"} (${
-      assessment?.overall_assessment?.pass_percentage ?? "N/A"
-    }%)`,
-    25,
-    yPosition
-  );
-  yPosition += 5;
-  pdf.text(
-    `Screening Result: ${screeningResult?.result ?? "N/A"}`,
-    25,
-    yPosition
-  );
-  yPosition += 5;
-  pdf.text(
-    `Referral Status: ${screeningResult?.referral_status ?? "N/A"}`,
-    25,
-    yPosition
-  );
-  yPosition += 5;
-  pdf.text(`Notes: ${screeningResult?.notes ?? "N/A"}`, 25, yPosition);
-  yPosition += 10;
 
-  // --- Medical Criteria Table ---
-  pdf.setFont(undefined, "bold");
-  pdf.text("DETAILED MEDICAL CRITERIA", 20, yPosition);
-  yPosition += 8;
+  // --- Criteria tables ---
+  const criteriaSection = (title: string, rows: Criterion[]) => {
+    newPageIfNeeded();
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(...black);
+    pdf.text(title, 20, yPosition);
+    yPosition += 4;
+    pdf.setFillColor(240, 240, 240);
+    pdf.rect(20, yPosition, 170, 8, "F");
+    pdf.text("Criterion", 22, yPosition + 6);
+    pdf.text("Expected", 85, yPosition + 6);
+    pdf.text("Actual", 130, yPosition + 6);
+    pdf.text("Status", 172, yPosition + 6);
+    yPosition += 13;
 
-  pdf.setFillColor(240, 240, 240);
-  pdf.rect(20, yPosition, 170, 8, "F");
-  pdf.text("Criteria", 22, yPosition + 6);
-  pdf.text("Status", 140, yPosition + 6);
-  pdf.text("Expected", 160, yPosition + 6);
-  yPosition += 10;
-
-  // Criteria rows, with overflow handling
-  const medicalCriteria = assessment?.detailed_criteria ?? {};
-  Object.entries(medicalCriteria).forEach(([key, criteria]) => {
-    if (key !== "upcoming_appointments") {
-      if (yPosition > 270) {
-        // Overflow
-        pdf.addPage();
-        yPosition = 20;
-      }
-      const status = criteria?.status ?? "N/A";
-      const statusColor = status === "PASS" ? [0, 128, 0] : [255, 0, 0];
-      pdf.setFont(undefined, "normal");
-      pdf.setTextColor(0, 0, 0);
-      const questionLines = pdf.splitTextToSize(criteria?.question ?? "-", 100);
-      pdf.text(questionLines, 22, yPosition + 4);
-      pdf.setTextColor(...statusColor);
-      pdf.text(status, 140, yPosition + 4);
-      pdf.setTextColor(0, 0, 0);
-      const expectedLines = pdf.splitTextToSize(criteria?.expected ?? "-", 35);
-      pdf.text(expectedLines, 160, yPosition + 4);
-      yPosition += Math.max(
-        questionLines.length * 5,
-        expectedLines.length * 5,
-        8
-      );
+    pdf.setFont("helvetica", "normal");
+    for (const criterion of rows) {
+      newPageIfNeeded();
+      const label = pdf.splitTextToSize(criterion.label, 60);
+      const expected = pdf.splitTextToSize(criterion.expected, 42);
+      const actual = pdf.splitTextToSize(criterion.actual, 40);
+      pdf.setTextColor(...black);
+      pdf.text(label, 22, yPosition);
+      pdf.text(expected, 85, yPosition);
+      pdf.text(actual, 130, yPosition);
+      pdf.setTextColor(...(statusColors[criterion.status] ?? black));
+      pdf.text(criterion.status, 172, yPosition);
+      yPosition += Math.max(label.length, expected.length, actual.length) * 5 + 2;
     }
-  });
+    pdf.setTextColor(...black);
+    yPosition += 4;
+  };
 
-  yPosition += 5;
+  criteriaSection("EXCLUSION CRITERIA", assessment.exclusions);
+  criteriaSection("VITALS", assessment.vitals);
 
   // --- Imaging Appointments ---
-  pdf.setFont(undefined, "bold");
-  pdf.setTextColor(0, 0, 0);
-  pdf.text("IMAGING APPOINTMENTS", 20, yPosition);
+  newPageIfNeeded();
+  pdf.setFont("helvetica", "bold");
+  pdf.text("IMAGING WITHIN 3 DAYS", 20, yPosition);
+  yPosition += 6;
+  pdf.setFont("helvetica", "normal");
+  const imaging: [string, boolean][] = [
+    ["X-rays & AIMS modalities", assessment.imaging.xrays_and_aims_modalities],
+    ["Ultrasound Doppler", assessment.imaging.ultrasound_doppler],
+    ["Ultrasound scans", assessment.imaging.ultrasound_scans],
+  ];
+  for (const [label, scheduled] of imaging) {
+    newPageIfNeeded();
+    pdf.text(`${label}: ${scheduled ? "Scheduled" : "None"}`, 25, yPosition);
+    yPosition += 5;
+  }
+  yPosition += 5;
+
+  // --- Swabs ---
+  newPageIfNeeded();
+  pdf.setFont("helvetica", "bold");
+  pdf.text("SWAB SCREENING", 20, yPosition);
+  yPosition += 6;
+  pdf.setFont("helvetica", "normal");
+  if (assessment.swabs.all_negative_within_24h) {
+    pdf.text(
+      "All required swabs negative within 24 hours: transfer directly to ICH",
+      25,
+      yPosition
+    );
+    yPosition += 5;
+  }
+  for (const check of assessment.swabs.checks) {
+    newPageIfNeeded();
+    pdf.text(
+      `${check.type}: ${check.status.replace("_", " ")} - ${check.recommendation}`,
+      25,
+      yPosition
+    );
+    yPosition += 5;
+  }
   yPosition += 8;
 
-  // Defensive extraction
-  const imagingData =
-    medicalCriteria?.upcoming_appointments?.modality_results ?? {};
-
-  pdf.setFillColor(240, 240, 240);
-  pdf.rect(20, yPosition, 170, 8, "F");
-  pdf.text("Modality Type", 22, yPosition + 6);
-  pdf.text("Scheduled", 120, yPosition + 6);
-  pdf.text("Status", 160, yPosition + 6);
-  yPosition += 10;
-
-  [
-    {
-      key: "xrays_and_aims_modalities",
-      label: "X-rays & AIMS Modalities",
-    },
-    { key: "ultrasound_doppler", label: "Ultrasound Doppler" },
-    { key: "ultrasound_scans", label: "Ultrasound Scans" },
-  ].forEach((type) => {
-    if (yPosition > 270) {
-      pdf.addPage();
-      yPosition = 20;
-    }
-    const isScheduled = !!imagingData[type.key];
-    const status = isScheduled ? "PASS" : "FAIL";
-    const statusColor = isScheduled ? [0, 128, 0] : [255, 0, 0];
-
-    pdf.setFont(undefined, "normal");
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(type.label, 22, yPosition + 4);
-    pdf.text(isScheduled ? "Yes" : "No", 120, yPosition + 4);
-    pdf.setTextColor(...statusColor);
-    pdf.text(status, 160, yPosition + 4);
-
-    yPosition += 8;
-  });
-
-  yPosition += 10;
-
   // --- Footer ---
-  pdf.setTextColor(0, 0, 0);
+  newPageIfNeeded();
   pdf.setFontSize(8);
-  pdf.text(`Generated on: ${new Date().toLocaleString()}`, 20, yPosition);
   pdf.text(
-    `Assessment Source: ${assessment?.website_source ?? "N/A"}`,
+    `Readiness ID: ${readiness_id ?? "N/A"}    History ID: ${history_id}`,
     20,
-    yPosition + 4
-  );
-  pdf.text(
-    `Readiness ID: ${screeningResult?.screening_update?.readiness_id ?? "N/A"}`,
-    120,
     yPosition
   );
-  pdf.text(
-    `History ID: ${screeningResult?.screening_update?.history_id ?? "N/A"}`,
-    120,
-    yPosition + 4
-  );
 
-  // --- Save and Log ---
-  const filename = `Referral_${referralId}_Order_${orderId}_Checklist.pdf`;
-  pdf.save(filename);
-  console.log(`PDF checklist downloaded: ${filename}`);
+  pdf.save(`Referral_${order.referral_id}_Order_${order.order_id}_Checklist.pdf`);
 };
+
 export default function ReferralOrdersTable() {
   const { data, loading, error, refetch } = useApiData();
   const { referralOrders } = data;
@@ -211,118 +184,76 @@ export default function ReferralOrdersTable() {
     text: string;
   } | null>(null);
 
-  const startProcess = async (
-    orderId: number,
-    patientId: number,
-    age: number
-  ) => {
+  const startProcess = async (orderId: number) => {
     setProcessingOrder(orderId);
     setMessage(null);
 
     try {
-      const response = await fetch(
-        "http://127.0.0.1:8000/api/referral-orders/start-process",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            order_id: orderId,
-            patient_id: patientId,
-            psa_name: "muf",
-          }),
-        }
-      );
-
-      const result = await response.json();
-      console.log(result);
-      const history_id = result.data.history_id;
-
-      if (result.success) {
-        setMessage({
-          type: "success",
-          text: "Process started successfully! Readiness screening created.",
-        });
-        // Refresh the data immediately to show updated status
-
-        const patientIdAge = patientId.toString() + age.toString();
-        const assessmentResponse = await fetch(
-          `http://127.0.0.1:8000/patient/${patientIdAge}/${orderId}/comprehensive-assessment?websiteUrl=http://localhost:3000/routes/referral-management/medical-history`
-        );
-        const assessmentResult = await assessmentResponse.json();
-        console.log("Comprehensive Assessment:", assessmentResult);
-        // NOW call the update endpoint with all the data
-        const updateResponse = await fetch(
-          "http://127.0.0.1:8000/update-screening-and-referral",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              patient_id: patientId,
-              history_id: history_id, // From the assessment response
-              order_id: orderId, // From your process
-              comprehensive_assessment: assessmentResult, // The full assessment result
-            }),
-          }
-        );
-
-        const updateResult = await updateResponse.json();
-        console.log("Screening update result:", updateResult);
-
-        if (updateResult.success) {
-          setMessage({
-            type: "success",
-            text: `Screening completed: ${updateResult.screening_summary.result}`,
-          });
-
-          // Create and download PDF
-          createAndDownloadPDFChecklist(
-            assessmentResult,
-            updateResult.screening_summary,
-            updateResult.referral_update
-          );
-        } else {
-          throw new Error(updateResult.error || "Failed to update screening");
-        }
-
-        console.log("PDF checklist created and downloaded successfully!");
-
-        await refetch();
-      } else {
-        setMessage({
-          type: "error",
-          text: result.message || "Failed to start process",
-        });
-      }
+      const result = await referralOrdersAPI.screen(orderId, PSA_NAME);
+      const { decision, reasons } = result.assessment;
+      setMessage({
+        type: "success",
+        text:
+          decision === "Escalated"
+            ? `Order #${orderId} escalated to clinician: ${reasons.join("; ")}`
+            : `Order #${orderId} ${decision.toLowerCase()}: ${reasons.join("; ")}`,
+      });
+      await createAndDownloadPDFChecklist(result);
+      await refetch();
     } catch (err) {
-      setMessage({ type: "error", text: "Network error. Please try again." });
+      setMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Screening failed",
+      });
+    } finally {
+      setProcessingOrder(null);
+    }
+  };
+
+  const clinicianDecision = async (
+    orderId: number,
+    decision: "Accepted" | "Rejected"
+  ) => {
+    let reason: string | undefined;
+    if (decision === "Rejected") {
+      reason = window.prompt("Reason for rejection")?.trim();
+      if (!reason) return;
+    }
+    setProcessingOrder(orderId);
+    setMessage(null);
+    try {
+      await referralOrdersAPI.decide(orderId, decision, reason);
+      setMessage({
+        type: "success",
+        text: `Order #${orderId} ${decision.toLowerCase()} by clinician`,
+      });
+      await refetch();
+    } catch (err) {
+      setMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Update failed",
+      });
     } finally {
       setProcessingOrder(null);
     }
   };
 
   // Format date in Singapore timezone
-  const formatSingaporeTime = (dateString: string) => {
+  const formatSingaporeTime = (dateString: string | null) => {
     if (!dateString) return "N/A";
 
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleString("en-SG", {
-        timeZone: "Asia/Singapore",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      });
-    } catch (error) {
-      return "Invalid Date";
-    }
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return "Invalid Date";
+    return date.toLocaleString("en-SG", {
+      timeZone: "Asia/Singapore",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
   };
 
   if (loading)
@@ -404,17 +335,16 @@ export default function ReferralOrdersTable() {
                             Order #{order.order_id}
                           </div>
                           <div className="text-sm text-gray-600">
-                            {formatSingaporeTime(
-                              order.order_datetime_sg || order.order_datetime
-                            )}
+                            {formatSingaporeTime(order.order_datetime)}
                           </div>
                           <div className="text-sm">
                             <span
                               className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                order.referral_status === "Started"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : order.referral_status === "Accepted"
+                                order.referral_status === "Accepted"
                                   ? "bg-green-100 text-green-800"
+                                  : order.referral_status === "Pending" &&
+                                    order.case_escalated_to_clinician
+                                  ? "bg-amber-100 text-amber-800"
                                   : order.referral_status === "Pending"
                                   ? "bg-yellow-100 text-yellow-800"
                                   : order.referral_status === "Rejected"
@@ -424,13 +354,22 @@ export default function ReferralOrdersTable() {
                                   : "bg-purple-100 text-purple-800"
                               }`}
                             >
-                              {order.referral_status}
+                              {order.referral_status === "Pending" &&
+                              order.case_escalated_to_clinician
+                                ? "Escalated"
+                                : order.referral_status}
                             </span>
                           </div>
-                          {order.reviewed_datetime_sg && (
+                          {order.reviewed_datetime && (
                             <div className="text-xs text-gray-500">
                               Reviewed:{" "}
-                              {formatSingaporeTime(order.reviewed_datetime_sg)}
+                              {formatSingaporeTime(order.reviewed_datetime)}
+                            </div>
+                          )}
+                          {order.accepted_withdrawn_datetime && (
+                            <div className="text-xs text-gray-500">
+                              Decided:{" "}
+                              {formatSingaporeTime(order.accepted_withdrawn_datetime)}
                             </div>
                           )}
                         </div>
@@ -500,10 +439,10 @@ export default function ReferralOrdersTable() {
                             )}
                           </div>
 
-                          {order.oxygen_requirement > 0 && (
+                          {Number(order.oxygen_requirement) > 0 && (
                             <div className="text-sm">
                               <span className="font-medium">O₂: </span>
-                              {order.oxygen_requirement}%
+                              {order.oxygen_requirement} L/min
                             </div>
                           )}
 
@@ -588,37 +527,60 @@ export default function ReferralOrdersTable() {
                       {/* Actions Column */}
                       <td className="px-4 py-3">
                         <div className="space-y-2">
-                          {order.referral_status === "Pending" && (
-                            <button
-                              onClick={() =>
-                                startProcess(
-                                  order.order_id,
-                                  order.patient_id,
-                                  order.age
-                                )
-                              }
-                              disabled={processingOrder === order.order_id}
-                              className="w-full bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 disabled:bg-blue-300 transition-colors text-sm font-medium"
-                            >
-                              {processingOrder === order.order_id
-                                ? "Processing..."
-                                : "Start Process"}
-                            </button>
-                          )}
+                          {order.referral_status === "Pending" &&
+                            !order.case_escalated_to_clinician && (
+                              <button
+                                onClick={() => startProcess(order.order_id)}
+                                disabled={processingOrder !== null}
+                                className="w-full bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 disabled:bg-blue-300 transition-colors text-sm font-medium"
+                              >
+                                {processingOrder === order.order_id
+                                  ? "Screening..."
+                                  : "Start Screening"}
+                              </button>
+                            )}
 
-                          {(order.referral_status === "Started" ||
-                            order.referral_status === "Accepted") && (
+                          {order.referral_status === "Pending" &&
+                            order.case_escalated_to_clinician && (
+                              <div className="space-y-1">
+                                <div className="text-xs font-medium text-amber-700 text-center">
+                                  Awaiting clinician
+                                </div>
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={() =>
+                                      clinicianDecision(order.order_id, "Accepted")
+                                    }
+                                    disabled={processingOrder !== null}
+                                    className="flex-1 bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 disabled:opacity-50 text-xs font-medium"
+                                  >
+                                    Accept
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      clinicianDecision(order.order_id, "Rejected")
+                                    }
+                                    disabled={processingOrder !== null}
+                                    className="flex-1 bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 disabled:opacity-50 text-xs font-medium"
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                          {(order.referral_status === "Accepted" ||
+                            order.referral_status === "Rejected") && (
                             <div
                               className={`text-sm font-medium text-center ${
-                                order.referral_status === "Started"
-                                  ? "text-blue-600"
-                                  : "text-green-600"
+                                order.referral_status === "Accepted"
+                                  ? "text-green-600"
+                                  : "text-red-600"
                               }`}
                             >
-                              ✓{" "}
-                              {order.referral_status === "Started"
-                                ? "Process Started"
-                                : "Process Accepted"}
+                              {order.referral_status === "Accepted"
+                                ? "✓ Accepted"
+                                : "✗ Rejected"}
                             </div>
                           )}
 
