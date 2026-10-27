@@ -106,12 +106,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
          xray_aims_modalities = $14,
          ultrasound_doppler = $15,
          ultrasound_scans = $16,
-         referral_status = $17,
+         referral_status = $17::text,
          case_escalated_to_clinician = $18,
          rejected_reason = $19,
          psa_name = $20,
          reviewed_datetime = ${NOW_SG},
-         accepted_withdrawn_datetime = CASE WHEN $17 IN ('Accepted', 'Rejected') THEN ${NOW_SG} ELSE NULL END
+         accepted_withdrawn_datetime = CASE WHEN $17::text IN ('Accepted', 'Rejected') THEN ${NOW_SG} ELSE NULL END
        WHERE order_id = $21
        RETURNING *`,
       [

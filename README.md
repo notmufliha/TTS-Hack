@@ -10,17 +10,22 @@ Referral triaging for the Tan Tock Seng Hospital Integrated Care Hub Patient Ser
 
 The app is a single Next.js app in `frontend/`. The API lives in Next.js route handlers under `frontend/src/app/api`, and the data is in PostgreSQL.
 
+## Data
+
+Students can't access real medical records, so `database/` holds a mock EPIC database: `schema.sql` (the team schema with fixes) and `seed.sql` (fake patients, dated relative to today so the 24-hour swab and 3-day imaging checks have data). The app has no store of its own. It reads only the fields the checklist needs when a referral is screened, writes the outcome back onto the referral order, and never sends data to an outside service.
+
 ## Run locally
 
 ```bash
 cd frontend
-cp .env.example .env.local   # fill in your database details
+cp .env.example .env.local   # set DATABASE_URL
 npm install
+npm run db:setup             # WARNING: drops and recreates the tables, then loads demo data
 npm run dev
 ```
 
 ## Deploy to Vercel
 
 1. Import the GitHub repo in Vercel and set **Root Directory** to `frontend`.
-2. Add `DATABASE_URL` (or the `DB_*` variables) under Project → Settings → Environment Variables.
-3. Deploy.
+2. Add `DATABASE_URL` under Project → Settings → Environment Variables (for example a Neon Postgres from the Vercel Marketplace).
+3. Run `npm run db:setup` once against that database, then deploy.
