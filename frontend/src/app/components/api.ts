@@ -39,6 +39,7 @@ export const swabsAPI = {
 
 export const referralOrdersAPI = {
   getAll: () => fetchAPI<{ referralOrders: ReferralOrder[] }>("/referral-orders"),
+  preview: (orderId: number) => fetchAPI<ScreeningResponse>(`/referral-orders/${orderId}/screen`),
   screen: (orderId: number, psaName: string) =>
     fetchAPI<ScreeningResponse>(`/referral-orders/${orderId}/screen`, {
       method: "POST",

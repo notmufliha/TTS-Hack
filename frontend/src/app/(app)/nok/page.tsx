@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { PageHeader } from '../../components/ui';
 import { initializeNOKFinancialCounselling } from './noklogic';
 import { patientDatabase, referralDatabase, surveillanceDatabase, Patient, Referral, Surveillance } from './data/patientDatabase';
 
@@ -19,7 +19,6 @@ const updateReferralDecision = (patientId: number, decision: 'ACCEPTED' | 'REJEC
 };
 
 export default function NOKPage() {
-  const router = useRouter();
   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -120,26 +119,16 @@ export default function NOKPage() {
   const pendingReferrals = getPendingReferrals();
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header with Dashboard Button */}
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">NOK Financial Counselling</h1>
-            <p className="text-gray-600 mt-2">
-              {pendingReferrals.length > 0 
-                ? `${pendingReferrals.length} pending decisions` 
-                : 'All referrals processed'}
-            </p>
-          </div>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium flex items-center space-x-2"
-          >
-            <span>←</span>
-            <span>Back to Dashboard</span>
-          </button>
-        </div>
+    <div>
+      <div>
+        <PageHeader
+          title="NOK financial counselling"
+          description={
+            pendingReferrals.length > 0
+              ? `${pendingReferrals.length} accepted referrals waiting for a next-of-kin decision`
+              : 'All next-of-kin decisions recorded'
+          }
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Patient Selection Sidebar */}
