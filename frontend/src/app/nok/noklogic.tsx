@@ -465,9 +465,10 @@ export const initializeNOKFinancialCounselling = (
   };
 
   // Get financial status safely
-  const financialStatus = (currentPatient as any).Financial_Status || 'Not specified';
-  const insuranceCoverage = (currentPatient as any).Insurance_Coverage !== undefined 
-    ? ((currentPatient as any).Insurance_Coverage ? 'Yes' : 'No') 
+  const patientExtras = currentPatient as { Financial_Status?: string; Insurance_Coverage?: boolean };
+  const financialStatus = patientExtras.Financial_Status || 'Not specified';
+  const insuranceCoverage = patientExtras.Insurance_Coverage !== undefined 
+    ? (patientExtras.Insurance_Coverage ? 'Yes' : 'No') 
     : 'Not specified';
 
   // Render the component with proper styling

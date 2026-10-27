@@ -9,29 +9,27 @@ import QuickActions from './components/QuickActions';
 import RecentActivity from './components/RecentActivity';
 
 export default function ReferralDashboard() {
-  const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month' | 'year'>('week');
+  const [month, setMonth] = useState(() =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore', year: 'numeric', month: '2-digit' }).format(new Date())
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Time Range Filter */}
+        {/* Month Filter */}
         <div className="mb-6 flex justify-end">
-  <select 
-    value={timeRange}
-    onChange={(e) => setTimeRange(e.target.value as any)}
-    className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
-  >
-    <option value="today">Today</option>
-    <option value="week">This Week</option>
-    <option value="month">This Month</option>
-    <option value="year">This Year</option>
-  </select>
-</div>
+          <input
+            type="month"
+            value={month}
+            onChange={(e) => e.target.value && setMonth(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+          />
+        </div>
 
         {/* Stats Overview */}
-        <StatsOverview timeRange={timeRange} />
+        <StatsOverview month={month} />
 
         <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}

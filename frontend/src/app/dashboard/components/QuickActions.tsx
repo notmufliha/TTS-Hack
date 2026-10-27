@@ -8,11 +8,11 @@ export default function QuickActions() {
 
   const actions = [
     {
-      title: 'New Referral',
-      description: 'Create a new patient referral',
-      icon: '➕',
+      title: 'Screen Referrals',
+      description: 'Run readiness screening on pending referrals',
+      icon: '🩺',
       color: 'bg-blue-500 hover:bg-blue-600',
-      onClick: () => console.log('New referral'),
+      onClick: () => router.push('/routes/referral-management/referral-orders'),
     },
     {
       title: 'NOK Counselling',
@@ -22,18 +22,18 @@ export default function QuickActions() {
       onClick: () => router.push('/nok'),
     },
     {
-      title: 'Bulk Upload',
-      description: 'Upload multiple referrals',
-      icon: '📤',
+      title: 'Patient Records',
+      description: 'Browse patients, vitals, swabs and appointments',
+      icon: '🗂️',
       color: 'bg-purple-500 hover:bg-purple-600',
-      onClick: () => console.log('Bulk upload'),
+      onClick: () => router.push('/routes'),
     },
     {
-      title: 'Generate Report',
-      description: 'Create referral analytics report',
+      title: 'Monthly Report',
+      description: 'Referral outcomes and turnaround times',
       icon: '📊',
       color: 'bg-orange-500 hover:bg-orange-600',
-      onClick: () => console.log('Generate report'),
+      onClick: () => router.push('/reports'),
     },
   ];
 

@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useApiData } from "../../../components/useApiData";
+import type { ReferralOrder } from "@/lib/types";
 
 export default function SwabsTable() {
   const { data, loading, error } = useApiData();
@@ -12,10 +13,10 @@ export default function SwabsTable() {
   if (error) return <div>Error: {error}</div>;
 
   // Create a mapping of patient_id to provider from the most recent referral orders
-  const patientProviderMap = {};
+  const patientProviderMap: Record<number, string | null> = {};
 
   // Group referral orders by patient_id and get the most recent one for each patient
-  const referralOrdersByPatient = {};
+  const referralOrdersByPatient: Record<number, ReferralOrder> = {};
 
   referralOrders.forEach((order) => {
     if (order.patient_id && order.order_datetime) {
@@ -34,8 +35,8 @@ export default function SwabsTable() {
   });
 
   // Create the final mapping using only the most recent orders
-  Object.entries(referralOrdersByPatient).forEach(([patientId, order]) => {
-    patientProviderMap[patientId] = order.provider;
+  Object.values(referralOrdersByPatient).forEach((order) => {
+    patientProviderMap[order.patient_id] = order.provider;
   });
 
   return (
@@ -81,7 +82,11 @@ export default function SwabsTable() {
                         {swab.swab_id}
                       </td>
                       <td className="px-4 py-3 text-gray-800">
-                        {swab.swab_date || "-"}
+                        {swab.swab_date
+                          ? new Date(swab.swab_date).toLocaleString("en-SG", {
+                              timeZone: "Asia/Singapore",
+                            })
+                          : "-"}
                       </td>
                       <td className="px-4 py-3 text-gray-800">
                         <div className="text-xs text-gray-800">

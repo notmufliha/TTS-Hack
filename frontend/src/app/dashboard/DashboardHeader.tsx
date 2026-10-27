@@ -25,7 +25,16 @@ export default function DashboardHeader() {
               >
                 NOK Counselling
               </button>
-              <button className="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
+              <button
+                onClick={() => router.push('/routes/referral-management/referral-orders')}
+                className="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+              >
+                Screening
+              </button>
+              <button
+                onClick={() => router.push('/reports')}
+                className="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+              >
                 Reports
               </button>
             </nav>
