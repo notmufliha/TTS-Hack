@@ -8,9 +8,12 @@ import pg from "pg";
 const databaseDir = new URL("../../database/", import.meta.url);
 const envFile = fileURLToPath(new URL("../.env.local", import.meta.url));
 
-if (!process.env.DATABASE_URL && existsSync(envFile)) {
-  const match = readFileSync(envFile, "utf8").match(/^DATABASE_URL=["']?([^"'\r\n]+)/m);
-  if (match) process.env.DATABASE_URL = match[1];
+if (existsSync(envFile)) {
+  const env = readFileSync(envFile, "utf8");
+  for (const key of ["DATABASE_URL", "DB_SSL"]) {
+    const match = env.match(new RegExp(`^${key}=["']?([^"'\\r\\n]+)`, "m"));
+    if (match && !process.env[key]) process.env[key] = match[1];
+  }
 }
 if (!process.env.DATABASE_URL) {
   console.error("Set DATABASE_URL first (environment or frontend/.env.local).");
